@@ -5,21 +5,145 @@ output:
     keep_md: true
 ---
 
+## Loading required libraries
+
+```{r  message=FALSE }
+library(lubridate);library(dplyr);library(ggplot2); library(tidyr)
+```
 
 ## Loading and preprocessing the data
 
-
+```{r, echo = TRUE}
+my_data <- read.csv("activity.csv")
+my_data <- my_data %>% 
+  mutate(date = ymd(date))
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r, echo = TRUE}
+sum_data <- my_data %>%
+  group_by(day(date))%>%
+  summarize(total_steps_perday = sum(steps)) 
+```
 
+
+```{r, echo = TRUE, message=FALSE, warning=FALSE}
+# Make a histogram of the total number of steps taken each day and calculate and report the mean and median of the total number of steps taken per day
+total_steps_perday_mean   = round(
+                                mean(sum_data$total_steps_perday, na.rm=TRUE) 
+                                )
+total_steps_perday_median = round(
+                                median(sum_data$total_steps_perday, na.rm=TRUE)
+                                )
+sum_data %>%
+  ggplot(aes(x=total_steps_perday))+
+  geom_histogram() + ylab("count") + xlab("Total steps per day")+ labs(title="Histogram of the total number of steps taken each day")+
+  geom_vline(aes(xintercept = total_steps_perday_mean ),linetype=2,color="blue") + 
+  annotate("text", x=total_steps_perday_mean-500, y=0.5, label=paste("mean=",total_steps_perday_mean), angle=90, size=5, color="blue",) +
+  geom_vline(aes(xintercept = total_steps_perday_median ),linetype=2,color="red") + 
+  annotate("text", x=total_steps_perday_median+500, y=0.5, label=paste("median=",total_steps_perday_median), angle=90, size=5, color="red") 
+  
+```
+
+The mean is 21.1K steps while the median is 21.7K
 
 ## What is the average daily activity pattern?
 
+Make a time series plot (i.e. type = "l"type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
+```{r, echo = TRUE, message=FALSE, warning=FALSE}
+time_int_data = my_data %>%
+  group_by(interval)%>%
+  summarize(avr_steps_byinterval = mean(steps,na.rm=TRUE)) 
+
+time_int_data_max <- arrange(time_int_data, desc(avr_steps_byinterval))[[1,1]]
+time_int_data %>%
+  ggplot(aes(x=interval , 
+            y=avr_steps_byinterval)) + 
+            geom_line() + xlab("5 minute intervals across 24 hours") + ylab("total steps per 5 min interval") + 
+            labs(title="Time series plot of the average number of steps taken")+
+            geom_vline(aes(xintercept = time_int_data_max),linetype=2, size=1, color="blue")  + 
+            annotate("text", x=time_int_data_max+30, y=80, 
+                     label=paste("interval with max avr steps)=", 
+                                 time_int_data_max), angle=90, size=5, color="blue",)
+
+```
+
+Question:> Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+Answer:    at 835th interval which is around 13:55 is the interval with the highest no. of steps
 
 ## Imputing missing values
+```{r, echo = TRUE ,message=FALSE, warning=FALSE}
+
+
+data <- read.csv("activity.csv")
+tidied_data <- data %>% 
+  mutate(date = yday(ymd(date)),steps = as.double(steps))%>%
+  group_by(interval)%>%
+  mutate_at(vars(steps), ~replace_na(., mean(.,na.rm=TRUE)))
+``` 
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day
+```{r, echo = TRUE, message=FALSE, warning=FALSE}
+tidied_data <- tidied_data%>%
+  group_by(date)%>%
+  summarize(total_steps_perday= sum(steps))
+
+revised_mean <- round(mean(tidied_data$total_steps_perday, na.rm=TRUE ))
+ 
+revised_median = round(median(tidied_data$total_steps_perday, na.rm=TRUE))
+
+tidied_data %>%
+  ggplot(aes(x=total_steps_perday)) +
+  geom_histogram() + labs(title="Histogram of the tot.no of daily steps after na cleaning") +
+  geom_vline(aes(xintercept = revised_mean ),linetype=2,color="blue") + 
+  annotate("text", x=revised_mean-500, y=1.5, 
+           label=paste("mean=",revised_mean), angle=90, size=5, color="blue",) +
+  geom_vline(aes(xintercept = revised_median +40),linetype=2,color="red") + 
+  annotate("text", x=revised_median+500, y=1.5, 
+           label=paste("median=",revised_median), angle=90, size=5, color="red",)
+
+```
+
+# Are there differences in activity patterns between weekdays and weekends?
 
 
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo = TRUE, message=FALSE, warning=FALSE}
+my_data <- read.csv("activity.csv")
+my_data <- my_data %>% 
+  mutate(date = ymd(date))
+
+my_data <- my_data %>%
+          
+         group_by(date) %>%
+          
+          summarise(total_steps = sum(steps))
+
+
+
+
+         #Create a new factor variable in the dataset with two levels – “weekday” and                                                                    “weekend” indicating whether a given date is a weekday or weekend day.
+
+
+data <- read.csv("activity.csv")
+
+tidied_data <- data %>% 
+  mutate(date = ymd(date),steps = as.double(steps))%>%
+  group_by(interval)%>%
+  mutate_at(vars(steps), ~replace_na(., mean(.,na.rm=TRUE)))%>%
+  ungroup()%>%
+  group_by(date)%>%
+  mutate(weekend =(wday(date)<2 | wday(date)>5))
+
+
+tidied_data%>%
+  group_by(weekend, interval)%>%
+  summarise(interval_means = mean(steps, na.rm=TRUE))%>%
+  ggplot(aes(x=interval, y= interval_means))+ geom_line() + facet_wrap(~weekend, nrow=2) + 
+  ylab("average number of total steps per day") + labs(title="The distribution of average steps across a day")
+
+```
+
+
